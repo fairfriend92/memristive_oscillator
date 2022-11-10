@@ -99,18 +99,26 @@ def doOscill(iArr, vOld, rOld):
     doFig(tArr, rArr, 8, 6, 22, './figures/R(t)_i='+iStr+'.pdf',
           'black', 'Time (arb. units)', 'Resistance (arb. units)',
           0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
-          
+         
     return vOld, rOld
         
 doIV()
 
-T       = 1000
+T       = 100
 
 di      = 0.1
 iArr    = np.arange(0., 5., di)
+vArr    = np.zeros(len(iArr))
 vOld    = 0.
 rOld    = Rhig
+j       = 0
 for i in iArr:
     vOld, rOld = doOscill(i*np.ones(T), vOld, Rhig)
+    vArr[j] = vOld
+    j = j+1
+    
+doFig(iArr, vArr, 8, 6, 22, './figures/IV_oscill.pdf',
+      'black', 'Current (arb. units)', 'Voltage (arb. units)',
+      0, iArr[-1], 0)
 
 #doOscill(2.5*np.ones(T), 0., Rhig)
