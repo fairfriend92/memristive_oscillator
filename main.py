@@ -8,6 +8,8 @@ i1      =   1.0     # Current value at the beginning of the NDR
 i2      =   3.0     # Current value at the end of the NDR 
 i3      =   10.     # Final current value
 di      =   .01     # Current step
+v3      =   50.     # Final voltage value
+dv      =   .01     # Voltage step
 dt      =   0.1     # Time step
 C       =   0.1     # Capacitance
 
@@ -43,22 +45,43 @@ def getR(i):
     if i <= i1:
         return Rhig
     elif i >= i2:
+        #return Rlow/(1 + (i-i2))
         return Rlow
     else:    
         return Rhig + (i-i1)*(Rhig-Rlow)/(i1-i2)
         
 def doIV():
-    iArr    = np.arange(0., i3, di)
     rArr    = []
     vArr    = []  
     maxV    = 0.
+    
+    '''
+    # Current controlled
+    iArr    = np.arange(0., i3, di)
     for i in iArr:
         r = getR(i)
         rArr.append(r)
         
         v = i*r
         maxV = v if v > maxV else maxV
-        vArr.append(v)    
+        vArr.append(v) 
+    '''
+
+    # Voltage controlled
+    iArr    = []
+    vAppArr = np.arange(0., v3, dv)
+    
+    iArr.append(0.)
+    rArr.append(Rhig)
+    vArr.append(0.)
+    for vApp in vAppArr:
+        v = vApp*rArr[-1]/(rArr[-1]+Rload)
+        iArr.append(v/rArr[-1])
+        rArr.append(getR(iArr[-1]))
+        
+        maxV = v if v > maxV else maxV
+        vArr.append(v)                
+        
     doFig(iArr, rArr, 8, 6, 22, './figures/R(I).pdf',
           'black', 'Current (arb. units)', 'Resistance (arb. units)',
           0., i3, 0., Rhig+1.)
@@ -66,7 +89,7 @@ def doIV():
           'black', 'Voltage (arb. units)', 'Current (arb. units)',
           0., maxV+1., 0., i3)
           
-def doOscill(iArr, vOld, rOld):
+def doOscill(iArr, vOld, rOld, doPrint = True):
     icArr   = []    # Capacitor current
     ixArr   = []    # Memristor current
     rArr    = []    # Memristor resistance
@@ -86,34 +109,37 @@ def doOscill(iArr, vOld, rOld):
         vArr.append(v)
     tArr = range(0, len(iArr))   
     
-    iStr = str(np.round(iArr[-1],2))
-    doFig(tArr, ixArr, 8, 6, 22, './figures/Ix(t)_i='+iStr+'.pdf',
-          'black', 'Time (arb. units)', r'$I_X$' + '(arb. units)',
-          0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
-    doFig(tArr, icArr, 8, 6, 22, './figures/Ic(t)_i='+iStr+'.pdf',
-          'black', 'Time (arb. units)', r'$I_C$' + '(arb. units)',
-          0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
-    doFig(tArr, vArr, 8, 6, 22, './figures/V(t)_i='+iStr+'.pdf',
-          'black', 'Time (arb. units)', 'Voltage (arb. units)',
-          0, tArr[-1], None, None, r'$I_{tot}=$'+iStr) 
-    doFig(tArr, rArr, 8, 6, 22, './figures/R(t)_i='+iStr+'.pdf',
-          'black', 'Time (arb. units)', 'Resistance (arb. units)',
-          0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
+    if doPrint:
+        iStr = str(np.round(iArr[-1],2))
+        doFig(tArr, ixArr, 8, 6, 22, './figures/Ix(t)_i='+iStr+'.pdf',
+              'black', 'Time (arb. units)', r'$I_X$' + '(arb. units)',
+              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
+        doFig(tArr, icArr, 8, 6, 22, './figures/Ic(t)_i='+iStr+'.pdf',
+              'black', 'Time (arb. units)', r'$I_C$' + '(arb. units)',
+              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
+        doFig(tArr, vArr, 8, 6, 22, './figures/V(t)_i='+iStr+'.pdf',
+              'black', 'Time (arb. units)', 'Voltage (arb. units)',
+              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr) 
+        doFig(tArr, rArr, 8, 6, 22, './figures/R(t)_i='+iStr+'.pdf',
+              'black', 'Time (arb. units)', 'Resistance (arb. units)',
+              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
          
     return vOld, rOld
+
+# Main loop
         
 doIV()
 
-T       = 100
+T       = 1000
 
-di      = 0.1
+di      = 0.05
 iArr    = np.arange(0., 5., di)
 vArr    = np.zeros(len(iArr))
 vOld    = 0.
 rOld    = Rhig
 j       = 0
 for i in iArr:
-    vOld, rOld = doOscill(i*np.ones(T), vOld, Rhig)
+    vOld, rOld = doOscill(i*np.ones(T), vOld, Rhig, True)
     vArr[j] = vOld
     j = j+1
     
