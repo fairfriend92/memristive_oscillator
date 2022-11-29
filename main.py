@@ -5,11 +5,11 @@ Rlow    =   0.5     # Low resistance
 Rhig    =   10.     # High resistance
 Rload   =   2.0     # Load resistance
 i1      =   1.0     # Current value at the beginning of the NDR
-i2      =   3.0     # Current value at the end of the NDR 
+i2      =   6.0     # Current value at the end of the NDR 
 i3      =   10.     # Final current value
 di      =   .05     # Current step
 v3      =   50.     # Final voltage value
-dv      =   .01     # Voltage step
+dv      =   .05     # Voltage step
 dt      =   0.1     # Time step
 C       =   0.1     # Capacitance
 
@@ -19,9 +19,9 @@ def doFig(x, y, xSize, ySize, labelSize, path,
           color='black', xLabel='none', yLabel='none',
           xLimLeft=None, xLimRight=None, 
           yLimBottom=None, yLimTop=None,
-          title='none'):          
+          title='none', markerStyle=''):          
     fig, ax = plt.subplots(figsize=(xSize, ySize))
-    ax.plot(x, y, color)
+    ax.plot(x, y, color, marker=markerStyle)
     ax.set(xlabel=xLabel, ylabel=yLabel)
     ax.xaxis.label.set_size(labelSize)
     ax.yaxis.label.set_size(labelSize)
@@ -58,7 +58,7 @@ def doIV():
     maxV    = 0.
         
     # Current controlled
-    if !vCtrl:
+    if vCtrl is not True:
         iArr    = np.arange(0., i3, di)
         for i in iArr:
             r = getR(i)
@@ -94,13 +94,11 @@ def doOscill(iArr, vAppArr, vOld, rOld, doPrint = True):
     ixArr   = []    # Memristor current
     rArr    = []    # Memristor resistance
     vArr    = []    # Voltage of memristor and capacitor
-        
-    rArr.append(rOld)
-    vArr.append(vOld)
+    
     for i, vApp in zip(iArr, vAppArr): 
-        if vCtrl:
-            vOld    = vApp*rArr[-1]/(rArr[-1]+Rload)
-            i       = vArr[-1]/rArr[-1]
+        if vCtrl is True:
+            vLoad   = vApp*Rload/(rOld + Rload)
+            i = vLoad/Rload
         
         ix      = (vOld + i*dt/C)/(rOld + dt/C)
         ic      = i - ix
@@ -113,53 +111,74 @@ def doOscill(iArr, vAppArr, vOld, rOld, doPrint = True):
         ixArr.append(ix)
         rArr.append(r)
         vArr.append(v)
-    tArr = range(0, len(iArr))   
     
     if doPrint:
-        iStr = str(np.round(iArr[-1],2))
-        doFig(tArr, ixArr, 8, 6, 22, './figures/Ix(t)_i='+iStr+'.pdf',
+        if vCtrl is not True:
+            tArr    = range(0, len(iArr))
+            iOld    = iArr[-1]
+            title   = r'$I_{tot}=$'+str(np.round(iArr[-1],2))
+            name    = 'i='+str(np.round(iArr[-1],2))            
+        else:
+            tArr    = range(0, len(vAppArr))
+            iOld    = icArr[-1]+ixArr[-1]
+            title   = r'$I_{tot}=$'+str(np.round(iOld,2))
+            name    = 'i='+str(np.round(iOld,2))
+            '''
+            title   = r'$V_{app}=$'+str(np.round(vAppArr[-1],2))
+            name    = 'vApp='+str(np.round(vAppArr[-1],2))
+            '''
+       
+        '''
+        doFig(tArr, ixArr, 8, 6, 22, './figures/Ix(t)_'+name+'.pdf',
               'black', 'Time (arb. units)', r'$I_X$' + '(arb. units)',
-              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
-        doFig(tArr, icArr, 8, 6, 22, './figures/Ic(t)_i='+iStr+'.pdf',
+              0, tArr[-1], None, None, title)
+        
+        doFig(tArr, icArr, 8, 6, 22, './figures/Ic(t)_'+name+'.pdf',
               'black', 'Time (arb. units)', r'$I_C$' + '(arb. units)',
-              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
-        doFig(tArr, vArr, 8, 6, 22, './figures/V(t)_i='+iStr+'.pdf',
+              0, tArr[-1], None, None, title)
+        doFig(tArr, vArr, 8, 6, 22, './figures/V(t)_'+name+'.pdf',
               'black', 'Time (arb. units)', 'Voltage (arb. units)',
-              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr) 
-        doFig(tArr, rArr, 8, 6, 22, './figures/R(t)_i='+iStr+'.pdf',
+              0, tArr[-1], None, None, title) 
+        doFig(tArr, rArr, 8, 6, 22, './figures/R(t)_'+name+'.pdf',
               'black', 'Time (arb. units)', 'Resistance (arb. units)',
-              0, tArr[-1], None, None, r'$I_{tot}=$'+iStr)
+              0, tArr[-1], None, None, title)
+        '''
          
-    return vOld, rOld
+    return vOld, rOld, iOld
 
 # Main loop
         
 doIV()
-  
-if !vCtrl:
+
+inptLen = 0  
+if vCtrl is not True:
     iArr    = np.arange(0., 5., di)
-    vAppArr = np.zeros(len(iArr))
-    vArr    = np.zeros(len(iArr))
+    inptLen = len(iArr)
+    vAppArr = np.zeros(inptLen)
+    vArr    = np.zeros(inptLen)
 else:
     vAppArr = np.arange(0., 25., dv)
-    iArr    = np.zeros(len(vAppArr))
-    vArr    = np.zeros(len(vAppArr))
+    inptLen = len(vAppArr)
+    iArr    = np.zeros(inptLen)
+    vArr    = np.zeros(inptLen)
 
 T       = 1000
 vOld    = 0.
 rOld    = Rhig
 j       = 0   
 for i, vApp in zip(iArr, vAppArr):
-    if !vCtrl:
-        vOld, rOld = doOscill(i*np.ones(T), np.zeros(T), vOld, Rhig, True)
+    print(str(np.round(float(100*j/inptLen),1))+"%")
+    if vCtrl is not True:
+        vOld, rOld, iOld = doOscill(i*np.ones(T), np.zeros(T), vOld, Rhig, True)
     else:
-        vOld, rOld = doOscill(np.zeros(T), vApp*np.ones(T), vOld, Rhig, True)
+        vOld, rOld, iOld = doOscill(np.zeros(T), vApp*np.ones(T), vOld, Rhig, True)
+        iArr[j] = iOld
     vArr[j] = vOld
     j = j+1
     
 
 doFig(iArr, vArr, 8, 6, 22, './figures/IV_oscill.pdf',
       'black', 'Current (arb. units)', 'Voltage (arb. units)',
-      0, iArr[-1], 0)
+      0, iArr[-1], 0, None, 'none', '.')
 
 #doOscill(2.5*np.ones(T), 0., Rhig)
