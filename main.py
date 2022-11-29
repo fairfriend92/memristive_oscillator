@@ -8,9 +8,11 @@ i1      =   1.0     # Current value at the beginning of the NDR
 i2      =   3.0     # Current value at the end of the NDR 
 i3      =   10.     # Final current value
 di      =   .05     # Current step
+#di      =   .02
 v3      =   80.     # Final voltage value
 dv      =   .05     # Voltage step
 dt      =   .1      # Time step
+#dt      =   .01
 C       =   .1      # Capacitance
 
 vCtrl   =   False    # Voltage-controlled regime
@@ -53,14 +55,16 @@ def doFig(x, y, xSize, ySize, labelSize, path,
     plt.close()
           
 
-def getR(i):
-    if i <= i1:
+def getR(i, iOld):
+    deltaI = 0 if i >= iOld else 0.5
+    #deltaI = 0
+    if i <= i1-deltaI:
         return Rhig
-    elif i >= i2:
+    elif i >= i2-deltaI:
         #return Rlow/(1 + (i-i2))
         return Rlow
     else:    
-        return Rhig + (i-i1)*(Rhig-Rlow)/(i1-i2)
+        return Rhig + (i-i1+deltaI)*(Rhig-Rlow)/(i1-i2)
         
 def doIV():
     rArr    = []
@@ -69,6 +73,7 @@ def doIV():
     j       = 0
     
     iArr            = np.arange(0., i3, di)
+    iArr            = np.concatenate((iArr, np.flip(iArr)))
     vAppArr         = np.arange(0., v3, dv)
     inptLen         = len(vAppArr) if vCtrl else len(iArr)
     vAppArr, iArr   = addPad(vAppArr, iArr)
@@ -80,10 +85,11 @@ def doIV():
         if vCtrl is True:
             rOld    = Rhig if len(rArr) == 0 else rArr[-1]   
             vLoad   = vApp*Rload/(rOld + Rload)
-            i       = vLoad/Rload
+            i       = vLoad/Rload                       
             iArr[j] = i
             
-        r       = getR(i)
+        iOld    = 0. if j == 0 else iArr[j-1]        
+        r       = getR(i, iOld)
         v       = i*r
         j       = j+1
         maxV    = v if v > maxV else maxV
@@ -93,10 +99,10 @@ def doIV():
         
     doFig(iArr[:inptLen], rArr, 8, 6, 22, './figures/R(I).pdf',
           'black', 'Current (arb. units)', 'Resistance (arb. units)',
-          0., i3, 0., Rhig+1., markerStyle='.')
+          0., i3, 0., Rhig+1., markerStyle='')
     doFig(vArr, iArr[:inptLen], 8, 6, 22, './figures/IV.pdf',
           'black', 'Voltage (arb. units)', 'Current (arb. units)',
-          0., maxV+1., 0., i3, markerStyle='.')
+          0., maxV+1., 0., i3, markerStyle='')
           
 def doOscill(iArr, vAppArr, vOld, rOld, doPrint = True):
     icArr   = []    # Capacitor current
@@ -105,18 +111,16 @@ def doOscill(iArr, vAppArr, vOld, rOld, doPrint = True):
     vArr    = []    # Voltage of memristor and capacitor    
     j       = 0
     
-    for i, vApp in zip(iArr, vAppArr): 
-        if j >= inptLen:
-            break
-            
+    for i, vApp in zip(iArr, vAppArr):     
         if vCtrl is True:
             vLoad   = vApp*Rload/(rOld + Rload)
             i       = vLoad/Rload
             iArr[j] = i
-        
-        ix      = (vOld + i*dt/C)/(rOld + dt/C)
+                    
+        iOld    = 0. if j == 0 else ixArr[-1]
+        ix      = (vOld + i*dt/C)/(rOld + dt/C)        
         ic      = i - ix
-        r       = getR(ix)
+        r       = getR(ix, iOld)
         v       = vOld + ic*dt/C
         rOld    = r
         vOld    = v
@@ -142,8 +146,7 @@ def doOscill(iArr, vAppArr, vOld, rOld, doPrint = True):
             iOld    = iArr[-1]
             title   = r'$I_{tot}=$'+str(np.round(iArr[-1],2))
             name    = 'i='+str(np.round(iArr[-1],2))
-       
-        '''
+        
         doFig(tArr, ixArr, 8, 6, 22, './figures/Ix(t)_'+name+'.pdf',
               'black', 'Time (arb. units)', r'$I_X$' + '(arb. units)',
               0, tArr[-1], None, None, title)
@@ -157,8 +160,7 @@ def doOscill(iArr, vAppArr, vOld, rOld, doPrint = True):
         doFig(tArr, rArr, 8, 6, 22, './figures/R(t)_'+name+'.pdf',
               'black', 'Time (arb. units)', 'Resistance (arb. units)',
               0, tArr[-1], None, None, title)
-        '''
-         
+                 
     return vOld, rOld, iOld
 
 # Main loop #
@@ -179,8 +181,7 @@ j       = 0
 
 for i, vApp in zip(iArr, vAppArr):
     if j >= inptLen:
-        break
-        
+        break        
     print(str(np.round(float(100*j/inptLen),1))+"%")
     vOld, rOld, iOld    = doOscill(i*np.ones(T), vApp*np.ones(T), vOld, Rhig, True)
     if vCtrl is True:
@@ -191,5 +192,5 @@ for i, vApp in zip(iArr, vAppArr):
 
 doFig(iArr[:inptLen], vArr, 8, 6, 22, './figures/IV_oscill.pdf',
       'black', 'Current (arb. units)', 'Voltage (arb. units)',
-      0, iArr[inptLen-1], 0, None, markerStyle='.')
+      0, iArr[inptLen-1], 0, None, markerStyle='')
 
